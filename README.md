@@ -33,4 +33,4 @@ Once all app files are on your GitHub Pages website, open the site on your phone
 
 ## Color themes
 
-The app includes a few starter palettes. Your own Pinterest-based theme presets can be added later without restructuring the app.
+The Settings page includes the original five starter themes plus 15 Pinterest-based color palettes submitted by the user, each as its own independent theme. All original colors are represented in each theme’s preview swatches; legible foreground and background tints may be derived from that same palette. Choose any preset to apply it immediately without altering habit progress. You can also change individual background, text, card, button, highlight, and border colors and save a separate personal theme; it remains available when switching back to presets. No Pinterest images are uploaded or embedded in the app; these are color-only presets.

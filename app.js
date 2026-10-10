@@ -67,9 +67,20 @@
   }
   function countDue(catId){return state.habits.filter(h=>h.categoryId===catId&&due(h)).length;}
   function totalDone(){return state.habits.filter(h=>h.completedDates.includes(today())).length;}
+  function readableInk(hex){
+    if(!/^#[0-9a-fA-F]{6}$/.test(hex||'')) return '#FFFFFF';
+    const rgb=[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)/255);
+    const [r,g,b]=rgb.map(v=>v<=0.04045?v/12.92:Math.pow((v+0.055)/1.055,2.4));
+    return 0.2126*r+0.7152*g+0.0722*b>0.18?'#17211B':'#FFFFFF';
+  }
+  function activeTheme(){
+    if(state.settings?.themeId==='custom' && state.settings?.customTheme) return state.settings.customTheme;
+    return C.THEMES.find(t=>t.id===state.settings?.themeId) || C.THEMES[0];
+  }
   function applyTheme(){
-    const theme= state.settings?.customTheme || C.THEMES.find(t=>t.id===state.settings?.themeId) || C.THEMES[0];
-    const colors={bg:theme.bg,paper:theme.paper,text:theme.text,muted:theme.muted,accent:theme.accent,soft:theme.soft,line:theme.outline};
+    const theme=activeTheme();
+    const colors={bg:theme.bg,paper:theme.paper,text:theme.text,muted:theme.muted,accent:theme.accent,
+      'accent-ink':theme.accentInk||readableInk(theme.accent),soft:theme.soft,line:theme.outline};
     Object.entries(colors).forEach(([key,val])=>document.documentElement.style.setProperty('--'+key,val));
     const meta=document.getElementById('themeMeta');if(meta)meta.content=theme.bg;
   }
@@ -205,9 +216,35 @@
       <div class="hint" style="margin-top:18px">A missed day without a freeze clears the revealed squares, but keeps the picture design so you can try again.</div>`;
   }
   function renderSettings(){
-    screen.innerHTML=`<div class="eyebrow">MAKE IT YOURS</div><h1 class="heading">Settings</h1><p class="lede">Pick a starter theme for now. We can add your Pinterest palettes here later.</p>
-      <h2 class="section-title">Color themes</h2><div class="theme-grid">${C.THEMES.map(t=>`<button type="button" class="theme-card ${state.settings.themeId===t.id?'selected':''}" data-action="theme-set" data-id="${esc(t.id)}">
-        <span class="swatches">${[t.bg,t.text,t.accent,t.soft].map(c=>`<i style="background:${esc(c)}"></i>`).join('')}</span><strong>${esc(t.name)}</strong></button>`).join('')}</div>
+    const pinterest=C.THEMES.filter(t=>t.group==='pinterest');
+    const starters=C.THEMES.filter(t=>t.group!=='pinterest');
+    const editor=activeTheme();
+    const fields=[
+      ['bg','Background'],['paper','Cards & panels'],['text','Main text'],
+      ['muted','Secondary text'],['accent','Buttons & accents'],
+      ['soft','Highlighted areas'],['outline','Borders']
+    ];
+    const card=t=>`<button type="button" class="theme-card ${state.settings.themeId===t.id?'selected':''}"
+      data-action="theme-set" data-id="${esc(t.id)}" aria-pressed="${state.settings.themeId===t.id?'true':'false'}">
+      <span class="swatches">${(t.swatches||[t.bg,t.text,t.accent,t.soft]).map(c=>`<i style="background:${esc(c)}"></i>`).join('')}</span>
+      <span class="theme-name">${esc(t.name)}</span>
+      <span class="selected-text">${state.settings.themeId===t.id?'✓ Selected':'Tap to apply'}</span>
+    </button>`;
+    const custom=state.settings.customTheme?`<div class="theme-grid">${card({...state.settings.customTheme,id:'custom',name:'My Custom Theme',swatches:fields.map(([key])=>state.settings.customTheme[key])})}</div>`:'';
+    screen.innerHTML=`<div class="eyebrow">MAKE IT YOURS</div><h1 class="heading">Settings</h1>
+      <p class="lede">Choose a theme anytime. Your habits, task sheets, and progress will stay the same.</p>
+      <h2 class="section-title">Your Pinterest palettes · ${pinterest.length} themes</h2>
+      <p class="muted small-text">Each theme uses colors from just one of your photos. The swatches preserve the original palette; some lighter or darker variations keep text readable.</p>
+      <div class="theme-grid">${pinterest.map(card).join('')}</div>
+      <h2 class="section-title">Original themes</h2><div class="theme-grid">${starters.map(card).join('')}</div>
+      <h2 class="section-title">Customize your own</h2>
+      <div class="panel"><p class="muted small-text" style="margin-top:0">Start from the currently selected palette, adjust any color, then save it as your custom theme. You can return to the Pinterest palettes anytime.</p>
+        ${custom}
+        <form data-form="theme-custom">
+          <div class="theme-editor">${fields.map(([key,label])=>`<label class="color-field"><span>${esc(label)}</span><input name="${key}" type="color" value="${esc(editor[key])}" aria-label="${esc(label)}" required></label>`).join('')}</div>
+          <button type="submit" class="button primary" style="margin-top:15px">Save My Custom Theme</button>
+        </form>
+      </div>
       <h2 class="section-title">Your data</h2>
       <div class="panel"><p class="muted small-text" style="margin:0 0 15px">Your habits and checklists are saved in this device's browser. They won't automatically sync with another phone or laptop.</p>
         <div class="row">${button('↓ Download backup','backup-download','','button primary')}${button('↑ Restore backup','backup-restore','','button')}</div>
@@ -395,7 +432,10 @@
         }
         break;
       }
-      case 'theme-set':state.settings.themeId=id;state.settings.customTheme=null;save();render();break;
+      case 'theme-set':
+        if(id==='custom' && !state.settings.customTheme)break;
+        if(id!=='custom' && !C.THEMES.some(t=>t.id===id))break;
+        state.settings.themeId=id;save();render();break;
       case 'backup-download':downloadBackup();break;
       case 'backup-restore':document.getElementById('restoreFile').click();break;
       case 'dialog-close':closeDialog();break;
@@ -410,7 +450,20 @@
   document.addEventListener('submit',event=>{
     const form=event.target;if(!form.dataset.form)return;
     event.preventDefault();const formData=new FormData(form);const f=form.dataset.form;
-    if(f==='category'){
+    if(f==='theme-custom'){
+      const fields=['bg','paper','text','muted','accent','soft','outline'];
+      const picked={};
+      for(const key of fields){
+        const value=String(formData.get(key)||'');
+        if(!/^#[0-9a-fA-F]{6}$/.test(value)){
+          toast('Please choose a valid color for every field.');return;
+        }
+        picked[key]=value;
+      }
+      state.settings.customTheme={...picked,accentInk:readableInk(picked.accent)};
+      state.settings.themeId='custom';
+      save();render();toast('Your custom colors are saved!');
+    } else if(f==='category'){
       const name=String(formData.get('name')||'').trim(),emoji=String(formData.get('emoji')||'✿').trim()||'✿';
       if(!name)return;
       const cat=categoryOf(form.dataset.id);

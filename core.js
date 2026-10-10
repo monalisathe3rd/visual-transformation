@@ -16,7 +16,24 @@
     {id:'rose',name:'Dusty Rose',bg:'#FBF5F2',paper:'#FFFFFF',text:'#503F46',muted:'#937E85',accent:'#BF899D',soft:'#F7E4EB',outline:'#ECDCE1'},
     {id:'ocean',name:'Sea Glass',bg:'#F2F8F7',paper:'#FFFFFF',text:'#354950',muted:'#718D91',accent:'#699CA1',soft:'#DFF0EF',outline:'#D7E6E4'},
     {id:'honey',name:'Golden Hour',bg:'#FCF8EF',paper:'#FFFFFF',text:'#51453A',muted:'#978778',accent:'#B79A67',soft:'#F7EDCF',outline:'#EEE5D5'},
-    {id:'lavender',name:'Lavender Haze',bg:'#F7F5FA',paper:'#FFFFFF',text:'#484359',muted:'#8D849E',accent:'#9386B3',soft:'#EDE7F7',outline:'#E5E0ED'}
+    {id:'lavender',name:'Lavender Haze',bg:'#F7F5FA',paper:'#FFFFFF',text:'#484359',muted:'#8D849E',accent:'#9386B3',soft:'#EDE7F7',outline:'#E5E0ED'},
+    // Pinterest palettes: each preset uses colors from one reference image only.
+    // `swatches` keeps the original photo colors visible in the Theme Gallery.
+    {id:'fern-garden',group:'pinterest',name:'Fern Garden',bg:'#DDF2E3',paper:'#F4FBF6',text:'#195F34',muted:'#247B47',accent:'#25854D',accentInk:'#FFFFFF',soft:'#BAE1C5',outline:'#93CEA5',swatches:['#DDF2E3','#BAE1C5','#93CEA5','#6BB785','#47A068','#25854D','#195F34']},
+    {id:'raspberry-wine',group:'pinterest',name:'Raspberry Wine',bg:'#300708',paper:'#5A0C14',text:'#F1DCDF',muted:'#E6A7B6',accent:'#D47F93',accentInk:'#300708',soft:'#7A0E16',outline:'#B63550',swatches:['#300708','#7A0E16','#D0CDCE','#B63550','#D47F93','#588B44']},
+    {id:'cherry-blossom',group:'pinterest',name:'Cherry Blossom',bg:'#AD8AA9',paper:'#EBDDE9',text:'#2F1822',muted:'#5D3857',accent:'#2C75B1',accentInk:'#FFFFFF',soft:'#D4BCD4',outline:'#885C7C',swatches:['#2C75B1','#5D3857','#885C7C','#AD8AA9','#2F1822']},
+    {id:'enchanted-forest',group:'pinterest',name:'Enchanted Forest',bg:'#171E1C',paper:'#2A342D',text:'#E4E9E3',muted:'#ACB0AB',accent:'#084E71',accentInk:'#FFFFFF',soft:'#4C5447',outline:'#767C6F',swatches:['#171E1C','#2A342D','#4C5447','#767C6F','#ACB0AB','#084E71']},
+    {id:'golden-poppy',group:'pinterest',name:'Golden Poppy',bg:'#2E3841',paper:'#3B464E',text:'#FAF3D1',muted:'#DDE3B1',accent:'#F5CF12',accentInk:'#2E3841',soft:'#596236',outline:'#7E8A32',swatches:['#2E3841','#7E8A32','#F5CF12','#DE8F04']},
+    {id:'winter-berry',group:'pinterest',name:'Winter Berry',bg:'#EAE3E1',paper:'#FAF6F4',text:'#312525',muted:'#676A68',accent:'#7B031C',accentInk:'#FFFFFF',soft:'#E2D7D9',outline:'#A2A5A4',swatches:['#7B031C','#EAE3E1','#A2A5A4','#676A68','#312525']},
+    {id:'antique-gold',group:'pinterest',name:'Antique Gold',bg:'#C6AE73',paper:'#EEE2C6',text:'#2E311A',muted:'#6B5B2D',accent:'#6B5B2D',accentInk:'#FFFFFF',soft:'#D6C795',outline:'#AD9664',swatches:['#C6AE73','#AD9664','#6B5B2D','#AD8330','#2E311A']},
+    {id:'sage-morning',group:'pinterest',name:'Sage Morning',bg:'#D6DDDB',paper:'#F2F5F2',text:'#5C4426',muted:'#566B4D',accent:'#5C4426',accentInk:'#FFFFFF',soft:'#C8C3B9',outline:'#789A70',swatches:['#D6DDDB','#C8C3B9','#789A70','#5C4426']},
+    {id:'pink-orchid',group:'pinterest',name:'Pink Orchid',bg:'#DBB4C3',paper:'#F4E6EA',text:'#1E2301',muted:'#6E6434',accent:'#364206',accentInk:'#FFFFFF',soft:'#C58FA3',outline:'#AD6A7E',swatches:['#C58FA3','#DBB4C3','#1E2301','#AD6A7E','#364206','#6E6434']},
+    {id:'blueberry-peach',group:'pinterest',name:'Blueberry Peach',bg:'#B7CED9',paper:'#EDF4F7',text:'#1A2950',muted:'#97394F',accent:'#3473B7',accentInk:'#FFFFFF',soft:'#D9E6ED',outline:'#B49889',swatches:['#B7CED9','#3473B7','#1A2950','#97394F','#B49889']},
+    {id:'summer-bloom',group:'pinterest',name:'Summer Bloom',bg:'#E2BBB3',paper:'#F8ECE9',text:'#1F331A',muted:'#6C5F47',accent:'#A55AA0',accentInk:'#FFFFFF',soft:'#E6D2D7',outline:'#A55AA0',swatches:['#1F331A','#6C5F47','#A55AA0','#E2BBB3']},
+    {id:'bamboo-mist',group:'pinterest',name:'Bamboo Mist',bg:'#D2CCC1',paper:'#EFEBE4',text:'#313B18',muted:'#555E48',accent:'#60681A',accentInk:'#FFFFFF',soft:'#A2A299',outline:'#7B8484',swatches:['#D2CCC1','#7B8484','#A2A299','#60681A','#636B5D','#313B18']},
+    {id:'florists-market',group:'pinterest',name:'Florist’s Market',bg:'#CAA0A1',paper:'#F2DCDE',text:'#321F17',muted:'#742B2C',accent:'#742B2C',accentInk:'#FFFFFF',soft:'#E4C5CA',outline:'#8C5E63',swatches:['#321F17','#742B2C','#8C5E63','#CAA0A1','#C29E07']},
+    {id:'blue-courtyard',group:'pinterest',name:'Blue Courtyard',bg:'#C2CAE5',paper:'#EFF1F8',text:'#022924',muted:'#586464',accent:'#BB3E69',accentInk:'#FFFFFF',soft:'#D4DFED',outline:'#A3B6D5',swatches:['#C2CAE5','#A3B6D5','#022924','#586464','#998D96','#164740','#BB3E69']},
+    {id:'velvet-valentine',group:'pinterest',name:'Velvet Valentine',bg:'#D4CED2',paper:'#F4E9EA',text:'#350204',muted:'#883C36',accent:'#680407',accentInk:'#FFFFFF',soft:'#CBAEAE',outline:'#D17265',swatches:['#D4CED2','#350204','#680407','#9F0507','#CBAEAE','#A8352C','#D17265']},
   ];
   const goodDate = x => typeof x === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(x) && !Number.isNaN(new Date(x + 'T12:00:00').getTime());
   function dateKey(d) { return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-'); }
