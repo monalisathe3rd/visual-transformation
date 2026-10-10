@@ -372,7 +372,14 @@ function completeHabit(id) {
     }
 
     habit.completedDates.push(getTodayDate());
+let streak = getHabitStreak(habit);
 
+if (streak > 0 && streak % 14 === 0) {
+    habit.streakFreezes = Math.min(
+        2,
+        (habit.streakFreezes || 0) + 1
+    );
+}
     localStorage.setItem(
         "vtHabits",
         JSON.stringify(habits)
@@ -581,6 +588,26 @@ details.textContent +=
         box.appendChild(name);
         box.appendChild(details);
         box.appendChild(status);
+
+let freezeInfo = document.createElement("div");
+freezeInfo.className = "count";
+freezeInfo.style.marginTop = "10px";
+
+let freezes = habit.streakFreezes || 0;
+let streak = getHabitStreak(habit);
+
+freezeInfo.textContent =
+    "❄️ Streak Freezes: " + freezes + "/2";
+
+if (freezes < 2) {
+    let nextFreeze = 14 - (streak % 14);
+
+    freezeInfo.textContent +=
+        " | Next freeze in " +
+        nextFreeze + " successful days";
+}
+
+box.appendChild(freezeInfo);
 
 let editButton = document.createElement("button");
 
