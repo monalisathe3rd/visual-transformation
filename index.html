@@ -247,13 +247,16 @@ function addHabit() {
         );
     }
 
-    let habit = {
-        id: Date.now(),
-        name: name.trim(),
-        category: currentCategory,
-        goalDays: goalDays,
-        weekdays: weekdays
-    };
+    
+let habit = {
+    id: Date.now(),
+    name: name.trim(),
+    category: currentCategory,
+    startDate: getTodayDate(),
+    goalDays: goalDays,
+    weekdays: weekdays
+};
+
 
     habits.push(habit);
 
