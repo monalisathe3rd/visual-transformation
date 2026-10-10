@@ -1,42 +1,89 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Visual Transformation</title>
+
     <style>
-    :root {
-        --background: #F8F6F2;
-        --text: #41483F;
-        --accent: #A3B59B;
-    }
+        :root {
+            --background: #F8F6F2;
+            --text: #41483F;
+            --accent: #A3B59B;
+        }
 
-    body {
-        background-color: var(--background);
-        color: var(--text);
-        font-family: Arial, sans-serif;
-        text-align: center;
-        padding: 40px 20px;
-    }
+        * {
+            box-sizing: border-box;
+        }
 
-    h1 {
-        font-size: 32px;
-    }
+        body {
+            background-color: var(--background);
+            color: var(--text);
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 35px 20px;
+        }
 
-    h2 {
-        color: var(--accent);
-        margin-top: 50px;
-    }
-</style>
+        main {
+            max-width: 450px;
+            margin: auto;
+        }
+
+        h1 {
+            font-size: 30px;
+            text-align: center;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #647160;
+        }
+
+        h2 {
+            margin-top: 45px;
+            font-size: 21px;
+        }
+
+        .category {
+            background: white;
+            border: 1px solid #DAE2D6;
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .count {
+            color: #83917C;
+            font-size: 13px;
+        }
+    </style>
 </head>
 
 <body>
+    <main>
+        <h1>Visual Transformation</h1>
+        <p class="subtitle">Your transformation begins here.</p>
 
-    <h1>Visual Transformation</h1>
+        <h2>My Habits</h2>
 
-    <h2>My Habits</h2>
+        <div class="category">
+            <span>Fitness</span>
+            <span class="count">0 habits ❯</span>
+        </div>
 
-    <p>Your transformation begins here.</p>
+        <div class="category">
+            <span>Self Care</span>
+            <span class="count">0 habits ❯</span>
+        </div>
 
+        <div class="category">
+            <span>Chores / Cleaning</span>
+            <span class="count">0 habits ❯</span>
+        </div>
+    </main>
 </body>
 </html>
