@@ -347,6 +347,55 @@ function getHabitStreak(habit) {
     return streak;
 }
 
+function getMissedScheduledDays(habit) {
+    if (
+        !habit.startDate ||
+        !Array.isArray(habit.weekdays)
+    ) {
+        return null;
+    }
+
+    let start = new Date(habit.startDate + "T12:00:00");
+
+    if (isNaN(start.getTime())) return null;
+
+    let yesterday = new Date();
+    yesterday.setHours(12, 0, 0, 0);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    let dayNames = [
+        "Sun", "Mon", "Tue", "Wed",
+        "Thu", "Fri", "Sat"
+    ];
+
+    let completed = new Set(habit.completedDates || []);
+    let missed = 0;
+
+    for (
+        let date = new Date(start);
+        date <= yesterday;
+        date.setDate(date.getDate() + 1)
+    ) {
+        let weekday = dayNames[date.getDay()];
+
+        if (!habit.weekdays.includes(weekday)) {
+            continue;
+        }
+
+        let year = date.getFullYear();
+        let month = String(date.getMonth() + 1).padStart(2, "0");
+        let day = String(date.getDate()).padStart(2, "0");
+
+        let dateKey = year + "-" + month + "-" + day;
+
+        if (!completed.has(dateKey)) {
+            missed++;
+        }
+    }
+
+    return missed;
+}
+
 function isDueToday(habit) {
     let completed = habit.completedDates || [];
 
@@ -591,7 +640,17 @@ details.textContent +=
         box.appendChild(name);
         box.appendChild(details);
         box.appendChild(status);
+let missedInfo = document.createElement("div");
+missedInfo.className = "count";
+missedInfo.style.marginTop = "8px";
 
+let missed = getMissedScheduledDays(habit);
+
+missedInfo.textContent = missed === null
+    ? "Missed days: Not tracked yet"
+    : "Missed scheduled days: " + missed;
+
+box.appendChild(missedInfo);
 let freezeInfo = document.createElement("div");
 freezeInfo.className = "count";
 freezeInfo.style.marginTop = "10px";
