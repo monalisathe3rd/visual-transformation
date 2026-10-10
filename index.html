@@ -119,6 +119,11 @@ h2 {
             <span>Chores / Cleaning</span>
             <span class="count">0 habits ❯</span>
         </button>
+        
+<button class="back-button" onclick="downloadBackup()">
+    ↓ Download My Habit Backup
+</button>
+
     </section>
 
     <!-- CATEGORY SCREEN -->
@@ -577,6 +582,34 @@ function updateCounts() {
             button.querySelector(".count").textContent =
                 count + " left today ❯";
         });
+}
+
+function downloadBackup() {
+    let backup = {
+        app: "Visual Transformation",
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        habits: habits
+    };
+
+    let file = new Blob(
+        [JSON.stringify(backup, null, 2)],
+        { type: "application/json" }
+    );
+
+    let url = URL.createObjectURL(file);
+
+    let link = document.createElement("a");
+    link.href = url;
+    link.download =
+        "visual-transformation-backup-" +
+        getTodayDate() + ".json";
+
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 updateCounts();
