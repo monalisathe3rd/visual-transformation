@@ -162,7 +162,6 @@ function goHome() {
     document.getElementById("homeScreen").hidden = false;
 }
 
-
 function addHabit() {
     let name = prompt("What is your new habit?");
 
@@ -175,25 +174,65 @@ function addHabit() {
         "30"
     );
 
-    if (answer === null) {
-        return;
-    }
+    if (answer === null) return;
 
     let goalDays = Number(answer);
 
-    if (
-        !Number.isSafeInteger(goalDays) ||
-        goalDays < 1
-    ) {
+    if (!Number.isSafeInteger(goalDays) || goalDays < 1) {
         alert("Please enter a whole number greater than zero.");
         return;
+    }
+
+    let daysAnswer = prompt(
+        "Which days will you do this habit?\n\n" +
+        "1 = Monday\n" +
+        "2 = Tuesday\n" +
+        "3 = Wednesday\n" +
+        "4 = Thursday\n" +
+        "5 = Friday\n" +
+        "6 = Saturday\n" +
+        "7 = Sunday\n\n" +
+        "Example: 1,3,5\n" +
+        "Or type ALL for every day.",
+        "ALL"
+    );
+
+    if (daysAnswer === null) return;
+
+    let dayNames = [
+        "Mon", "Tue", "Wed", "Thu",
+        "Fri", "Sat", "Sun"
+    ];
+
+    let weekdays = [];
+
+    if (daysAnswer.trim().toUpperCase() === "ALL") {
+        weekdays = [...dayNames];
+    } else {
+        let selected = daysAnswer.split(",").map(
+            day => day.trim()
+        );
+
+        if (selected.some(day => !/^[1-7]$/.test(day))) {
+            alert("Please enter numbers 1-7 separated by commas, or ALL.");
+            return;
+        }
+
+        weekdays = [...new Set(
+            selected.map(day => dayNames[Number(day) - 1])
+        )];
+
+        weekdays.sort(
+            (a, b) => dayNames.indexOf(a) - dayNames.indexOf(b)
+        );
     }
 
     let habit = {
         id: Date.now(),
         name: name.trim(),
         category: currentCategory,
-        goalDays: goalDays
+        goalDays: goalDays,
+        weekdays: weekdays
     };
 
     habits.push(habit);
@@ -206,7 +245,6 @@ function addHabit() {
     showHabits();
     updateCounts();
 }
-
 
 
 function showHabits() {
@@ -224,19 +262,32 @@ function showHabits() {
         let name = document.createElement("span");
         name.textContent = habit.name;
 
-        let duration = document.createElement("span");
-        duration.className = "count";
+        let details = document.createElement("div");
+        details.style.textAlign = "right";
+        details.style.marginLeft = "12px";
 
+        let duration = document.createElement("div");
+        duration.className = "count";
         duration.textContent = habit.goalDays
             ? habit.goalDays + " days"
             : "Goal not set";
 
+        let schedule = document.createElement("div");
+        schedule.className = "count";
+        schedule.style.marginTop = "5px";
+
+        schedule.textContent = habit.weekdays
+            ? habit.weekdays.join(", ")
+            : "Days not set";
+
+        details.appendChild(duration);
+        details.appendChild(schedule);
+
         box.appendChild(name);
-        box.appendChild(duration);
+        box.appendChild(details);
         list.appendChild(box);
     });
 }
-
 
 function updateCounts() {
     document.querySelectorAll("#homeScreen .category")
