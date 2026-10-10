@@ -133,7 +133,11 @@ h2 {
         <button class="category" onclick="addHabit()">
     <span>+ Add Habit</span>
 </button>
-
+<button class="category"
+        id="viewAllButton"
+        onclick="toggleAllHabits()">
+    View All Habits
+</button>
 <div id="habitList"></div>
     </section>
 
@@ -304,6 +308,10 @@ function completeHabit(id) {
 }
 
 function showHabits() {
+        if (showingAllHabits) {
+        showAllHabits();
+        return;
+    }
     let list = document.getElementById("habitList");
     list.replaceChildren();
 
@@ -357,6 +365,82 @@ function showHabits() {
         box.appendChild(check);
         box.appendChild(name);
         box.appendChild(progress);
+
+        list.appendChild(box);
+    });
+}
+
+let showingAllHabits = false;
+
+function toggleAllHabits() {
+    showingAllHabits = !showingAllHabits;
+
+    let button = document.getElementById("viewAllButton");
+
+    button.textContent = showingAllHabits
+        ? "← Back to Today's Habits"
+        : "View All Habits";
+
+    showHabits();
+}
+
+function showAllHabits() {
+    let list = document.getElementById("habitList");
+    list.replaceChildren();
+
+    let categoryHabits = habits.filter(
+        habit => habit.category === currentCategory
+    );
+
+    if (categoryHabits.length === 0) {
+        let message = document.createElement("p");
+        message.textContent = "No habits added yet!";
+        list.appendChild(message);
+        return;
+    }
+
+    categoryHabits.forEach(habit => {
+        let box = document.createElement("div");
+        box.className = "category";
+        box.style.display = "block";
+
+        let name = document.createElement("div");
+        name.textContent = habit.name;
+        name.style.fontWeight = "bold";
+
+        let details = document.createElement("div");
+        details.className = "count";
+        details.style.marginTop = "8px";
+
+        let completed = habit.completedDates || [];
+        let goal = habit.goalDays || "?";
+
+        let schedule = Array.isArray(habit.weekdays)
+            ? habit.weekdays.join(", ")
+            : "Days not set";
+
+        details.textContent =
+            completed.length + "/" + goal +
+            " days • " + schedule;
+
+        let status = document.createElement("div");
+        status.className = "count";
+        status.style.marginTop = "8px";
+
+        if (habit.goalDays &&
+            completed.length >= habit.goalDays) {
+            status.textContent = "Goal reached!";
+        } else if (completed.includes(getTodayDate())) {
+            status.textContent = "✓ Completed today";
+        } else if (isDueToday(habit)) {
+            status.textContent = "○ Due today";
+        } else {
+            status.textContent = "Not scheduled today";
+        }
+
+        box.appendChild(name);
+        box.appendChild(details);
+        box.appendChild(status);
 
         list.appendChild(box);
     });
