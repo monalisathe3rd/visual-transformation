@@ -130,27 +130,99 @@ h2 {
 
         <h2 id="categoryTitle"></h2>
 
-        <div class="placeholder">
-            <p>Your habits will appear here.</p>
-            <p>We'll add them soon! 🌷</p>
-        </div>
+        <button class="category" onclick="addHabit()">
+    <span>+ Add Habit</span>
+</button>
 
+<div id="habitList"></div>
     </section>
 
 </main>
 
+
 <script>
+let currentCategory = "";
+
+let habits = JSON.parse(
+    localStorage.getItem("vtHabits") || "[]"
+);
+
 function openCategory(name) {
+    currentCategory = name;
+
     document.getElementById("homeScreen").hidden = true;
     document.getElementById("categoryScreen").hidden = false;
     document.getElementById("categoryTitle").textContent = name;
+
+    showHabits();
 }
 
 function goHome() {
     document.getElementById("categoryScreen").hidden = true;
     document.getElementById("homeScreen").hidden = false;
 }
+
+function addHabit() {
+    let name = prompt("What is your new habit?");
+
+    if (name === null || name.trim() === "") {
+        return;
+    }
+
+    let habit = {
+        id: Date.now(),
+        name: name.trim(),
+        category: currentCategory
+    };
+
+    habits.push(habit);
+
+    localStorage.setItem(
+        "vtHabits",
+        JSON.stringify(habits)
+    );
+
+    showHabits();
+    updateCounts();
+}
+
+function showHabits() {
+    let list = document.getElementById("habitList");
+    list.replaceChildren();
+
+    let categoryHabits = habits.filter(
+        habit => habit.category === currentCategory
+    );
+
+    categoryHabits.forEach(habit => {
+        let box = document.createElement("div");
+        box.className = "category";
+
+        let name = document.createElement("span");
+        name.textContent = habit.name;
+
+        box.appendChild(name);
+        list.appendChild(box);
+    });
+}
+
+function updateCounts() {
+    document.querySelectorAll("#homeScreen .category")
+        .forEach(button => {
+            let category = button.querySelector("span").textContent;
+
+            let count = habits.filter(
+                habit => habit.category === category
+            ).length;
+
+            button.querySelector(".count").textContent =
+                count + " total ❯";
+        });
+}
+
+updateCounts();
 </script>
+
 
 </body>
 </html>
