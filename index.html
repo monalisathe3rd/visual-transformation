@@ -124,6 +124,17 @@ h2 {
     ↓ Download My Habit Backup
 </button>
 
+<button class="back-button"
+        onclick="document.getElementById('restoreFile').click()">
+    ↑ Restore My Habit Backup
+</button>
+
+<input type="file"
+       id="restoreFile"
+       accept=".json,application/json"
+       hidden
+       onchange="restoreBackup(event)">
+
     </section>
 
     <!-- CATEGORY SCREEN -->
@@ -309,6 +320,70 @@ function completeHabit(id) {
     );
 
     showHabits();
+    
+async function restoreBackup(event) {
+    const input = event.target;
+    const file = input.files[0];
+
+    if (!file) return;
+
+    input.value = "";
+
+    try {
+        const text = await file.text();
+        const backup = JSON.parse(text);
+
+        const valid =
+            backup &&
+            backup.app === "Visual Transformation" &&
+            Array.isArray(backup.habits) &&
+            backup.habits.every(habit =>
+                habit &&
+                typeof habit.name === "string" &&
+                typeof habit.category === "string" &&
+                Number.isSafeInteger(habit.id) &&
+                (habit.weekdays === undefined ||
+                    Array.isArray(habit.weekdays)) &&
+                (habit.completedDates === undefined ||
+                    Array.isArray(habit.completedDates))
+            );
+
+        if (!valid) {
+            alert("This is not a valid Visual Transformation backup.");
+            return;
+        }
+
+        const confirmed = confirm(
+            "This backup contains " +
+            backup.habits.length +
+            " habits.\n\n" +
+            "Restoring it will REPLACE all habits " +
+            "currently saved in this browser.\n\n" +
+            "Do you want to continue?"
+        );
+
+        if (!confirmed) return;
+
+        localStorage.setItem(
+            "vtHabits",
+            JSON.stringify(backup.habits)
+        );
+
+        habits = backup.habits;
+
+        updateCounts();
+        goHome();
+
+        alert("Your habits have been restored! 🌷");
+
+    } catch (error) {
+        alert(
+            "The backup could not be restored. " +
+            "Please check the file and try again."
+        );
+    }
+}
+
     updateCounts();
 }
 
