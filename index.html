@@ -2,88 +2,155 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Visual Transformation</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Visual Transformation</title>
 
-    <style>
-        :root {
-            --background: #F8F6F2;
-            --text: #41483F;
-            --accent: #A3B59B;
-        }
+<style>
+:root {
+    --background: #F8F6F2;
+    --text: #41483F;
+    --accent: #A3B59B;
+}
 
-        * {
-            box-sizing: border-box;
-        }
+* {
+    box-sizing: border-box;
+}
 
-        body {
-            background-color: var(--background);
-            color: var(--text);
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 35px 20px;
-        }
+body {
+    background: var(--background);
+    color: var(--text);
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 35px 20px;
+}
 
-        main {
-            max-width: 450px;
-            margin: auto;
-        }
+main {
+    max-width: 450px;
+    margin: auto;
+}
 
-        h1 {
-            font-size: 30px;
-            text-align: center;
-        }
+h1 {
+    font-size: 30px;
+    text-align: center;
+}
 
-        .subtitle {
-            text-align: center;
-            color: #647160;
-        }
+.subtitle {
+    text-align: center;
+    color: #647160;
+}
 
-        h2 {
-            margin-top: 45px;
-            font-size: 21px;
-        }
+h2 {
+    margin-top: 45px;
+    font-size: 21px;
+}
 
-        .category {
-            background: white;
-            border: 1px solid #DAE2D6;
-            border-radius: 16px;
-            padding: 20px;
-            margin-bottom: 12px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
+.category {
+    background: white;
+    border: 1px solid #DAE2D6;
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    color: var(--text);
+    font-size: 16px;
+    text-align: left;
+    cursor: pointer;
+}
 
-        .count {
-            color: #83917C;
-            font-size: 13px;
-        }
-    </style>
+.count {
+    color: #83917C;
+    font-size: 13px;
+}
+
+.back-button {
+    background: none;
+    border: none;
+    color: var(--text);
+    font-size: 17px;
+    cursor: pointer;
+    padding: 10px 0;
+}
+
+.placeholder {
+    background: white;
+    border: 1px solid #DAE2D6;
+    border-radius: 16px;
+    padding: 30px 20px;
+    text-align: center;
+    margin-top: 25px;
+}
+
+[hidden] {
+    display: none !important;
+}
+</style>
 </head>
 
 <body>
-    <main>
+<main>
+
+    <!-- HOME SCREEN -->
+    <section id="homeScreen">
         <h1>Visual Transformation</h1>
-        <p class="subtitle">Your transformation begins here.</p>
+        <p class="subtitle">
+            Your transformation begins here.
+        </p>
 
         <h2>My Habits</h2>
 
-        <div class="category">
+        <button class="category"
+                onclick="openCategory('Fitness')">
             <span>Fitness</span>
             <span class="count">0 habits ❯</span>
-        </div>
+        </button>
 
-        <div class="category">
+        <button class="category"
+                onclick="openCategory('Self Care')">
             <span>Self Care</span>
             <span class="count">0 habits ❯</span>
-        </div>
+        </button>
 
-        <div class="category">
+        <button class="category"
+                onclick="openCategory('Chores / Cleaning')">
             <span>Chores / Cleaning</span>
             <span class="count">0 habits ❯</span>
+        </button>
+    </section>
+
+    <!-- CATEGORY SCREEN -->
+    <section id="categoryScreen" hidden>
+
+        <button class="back-button" onclick="goHome()">
+            ← Back
+        </button>
+
+        <h2 id="categoryTitle"></h2>
+
+        <div class="placeholder">
+            <p>Your habits will appear here.</p>
+            <p>We'll add them soon! 🌷</p>
         </div>
-    </main>
+
+    </section>
+
+</main>
+
+<script>
+function openCategory(name) {
+    document.getElementById("homeScreen").hidden = true;
+    document.getElementById("categoryScreen").hidden = false;
+    document.getElementById("categoryTitle").textContent = name;
+}
+
+function goHome() {
+    document.getElementById("categoryScreen").hidden = true;
+    document.getElementById("homeScreen").hidden = false;
+}
+</script>
+
 </body>
 </html>
