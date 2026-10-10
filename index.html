@@ -162,6 +162,7 @@ function goHome() {
     document.getElementById("homeScreen").hidden = false;
 }
 
+
 function addHabit() {
     let name = prompt("What is your new habit?");
 
@@ -169,10 +170,30 @@ function addHabit() {
         return;
     }
 
+    let answer = prompt(
+        "How many successful days is your goal?",
+        "30"
+    );
+
+    if (answer === null) {
+        return;
+    }
+
+    let goalDays = Number(answer);
+
+    if (
+        !Number.isSafeInteger(goalDays) ||
+        goalDays < 1
+    ) {
+        alert("Please enter a whole number greater than zero.");
+        return;
+    }
+
     let habit = {
         id: Date.now(),
         name: name.trim(),
-        category: currentCategory
+        category: currentCategory,
+        goalDays: goalDays
     };
 
     habits.push(habit);
@@ -185,6 +206,8 @@ function addHabit() {
     showHabits();
     updateCounts();
 }
+
+
 
 function showHabits() {
     let list = document.getElementById("habitList");
@@ -201,10 +224,19 @@ function showHabits() {
         let name = document.createElement("span");
         name.textContent = habit.name;
 
+        let duration = document.createElement("span");
+        duration.className = "count";
+
+        duration.textContent = habit.goalDays
+            ? habit.goalDays + " days"
+            : "Goal not set";
+
         box.appendChild(name);
+        box.appendChild(duration);
         list.appendChild(box);
     });
 }
+
 
 function updateCounts() {
     document.querySelectorAll("#homeScreen .category")
