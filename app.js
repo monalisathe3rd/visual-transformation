@@ -9,8 +9,61 @@
   const toastNode = document.getElementById('toast');
   const today = () => C.dateKey(new Date());
   let view = { page:'home', categoryId:null, all:false, artId:null, artType:'habit' };
+  const ensureState = value => { if(!Array.isArray(value.sharedPictures)) value.sharedPictures=[]; return value; };
   let state = loadState();
   let toastTimer;
+  let picturePickerPending = null;
+  const sharedOf = id => state.sharedPictures.find(p=>p.id===id);
+  const linkedPicture = h => h?.sharedPictureId ? sharedOf(h.sharedPictureId) : null;
+  const memberHabits = p => (p.habitIds||[]).map(habitOf).filter(Boolean);
+  function sharedStats(p){
+    const members=memberHabits(p);
+    const goalDays=members.reduce((n,h)=>n+h.goalDays,0);
+    const progress=p.archived?goalDays:members.reduce((n,h)=>n+Math.min(h.goalDays,Math.max(h.progress,Number(p.credited?.[h.id]||0))),0);
+    return {goalDays,progress,members};
+  }
+  function sharedDisplay(p){
+    const stats=sharedStats(p);
+    return {...p,goalDays:Math.max(1,stats.goalDays),progress:stats.progress,round:1};
+  }
+  function archiveSharedIfFinished(p){
+    if(!p || p.archived)return false;
+    const v=sharedStats(p);
+    if(!v.goalDays || v.progress<v.goalDays)return false;
+    state.gallery.push({id:C.makeId(),habitName:p.name,goalDays:v.goalDays,
+      finishedOn:today(),pattern:p.pattern,pixelColors:p.pixelColors?[...p.pixelColors]:null,round:1,shared:true});
+    p.archived=true;
+    return true;
+  }
+  function tidySharedPictures(){
+    // Each habit may belong to at most one shared image.
+    state.sharedPictures.forEach(p=>{
+      p.habitIds=(p.habitIds||[]).filter(id=>habitOf(id)?.sharedPictureId===p.id);
+    });
+    const dropped=state.sharedPictures.filter(p=>p.habitIds.length<2);
+    dropped.forEach(p=>p.habitIds.forEach(id=>{const h=habitOf(id);if(h)h.sharedPictureId=null;}));
+    state.sharedPictures=state.sharedPictures.filter(p=>p.habitIds.length>=2);
+  }
+  function mix(a,b,t){
+    const part=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16));
+    const x=part(a),y=part(b);
+    return '#'+x.map((v,i)=>Math.round(v*(1-t)+y[i]*t).toString(16).padStart(2,'0')).join('').toUpperCase();
+  }
+  function brightness(hex){
+    return [1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)/255)
+      .map(v=>v<=0.04045?v/12.92:((v+0.055)/1.055)**2.4)
+      .reduce((n,v,i)=>n+v*[.2126,.7152,.0722][i],0);
+  }
+  function darkPalette(t){
+    if(t.group!=='pinterest')return t;
+    const colors=[...t.swatches].sort((a,b)=>brightness(a)-brightness(b));
+    const darkest=colors[0],lightest=colors.at(-1),second=colors[1]||darkest;
+    // Keep the darkest palette shade in the background and the lightest shade
+    // for text/buttons. Slight blends add depth without introducing foreign hues.
+    return {...t,bg:darkest,paper:mix(darkest,second,.35),text:lightest,
+      muted:lightest,accent:lightest,accentInk:darkest,
+      soft:mix(darkest,lightest,.14),outline:mix(darkest,lightest,.31)};
+  }
   const patternNames = {flower:'Wildflower',heart:'Little Heart',sunrise:'Sunrise',mountain:'Mountains',plant:'Growing Plant',star:'Starlight'};
   const esc = value => String(value ?? '').replace(/[&<>"']/g, ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   const button = (label,action,extra='',cls='button') => `<button type="button" class="${cls}" data-action="${action}" ${extra}>${label}</button>`;
@@ -23,17 +76,17 @@
       const newData = localStorage.getItem(KEY);
       if(newData){
         const parsed=JSON.parse(newData);
-        if (C.validState(parsed)) return parsed;
+        if (C.validState(parsed)) return ensureState(parsed);
         console.warn('Stored newer app data did not validate; old data was kept untouched.');
       }
       const old = localStorage.getItem('vtHabits');
       if(old){
         const data=C.migrateLegacy(JSON.parse(old),today());
         localStorage.setItem(KEY, JSON.stringify(data));
-        return data;
+        return ensureState(data);
       }
     } catch(err) { console.warn('Storage could not be loaded; original data was not erased.',err); }
-    return C.blankState();
+    return ensureState(C.blankState());
   }
   function save() {
     try {localStorage.setItem(KEY,JSON.stringify(state));return true;}
@@ -57,11 +110,12 @@
     if(resets)toast(`${plural(resets,'habit')} restarted after an unprotected missed day.`);
     else if(spent)toast(`${plural(spent,'Streak Freeze')} protected your progress! ❄`);
   }
-  function due(h,date=today()){return h.status==='active'&&C.dayScheduled(h,date)&&!h.completedDates.includes(date);}
+  function due(h,date=today()){return h.status==='active'&&C.dayScheduled(h,date)&&!h.completedDates.includes(date)&&!(h.skippedDates||[]).includes(date);}
   function status(h){
     if(h.status==='ended')return 'Finished';
     if(h.status==='ready')return 'Goal reached';
     if(h.completedDates.includes(today()))return 'Completed today';
+    if((h.skippedDates||[]).includes(today()))return 'Skipped today · streak protected';
     if(C.dayScheduled(h,today()))return 'Due today';
     return 'Not scheduled today';
   }
@@ -75,10 +129,11 @@
   }
   function activeTheme(){
     if(state.settings?.themeId==='custom' && state.settings?.customTheme) return state.settings.customTheme;
-    return C.THEMES.find(t=>t.id===state.settings?.themeId) || C.THEMES[0];
+    return darkPalette(C.THEMES.find(t=>t.id===state.settings?.themeId) || C.THEMES[0]);
   }
   function applyTheme(){
     const theme=activeTheme();
+    document.body.classList.toggle('pinterest-dark',theme.group==='pinterest');
     const colors={bg:theme.bg,paper:theme.paper,text:theme.text,muted:theme.muted,accent:theme.accent,
       'accent-ink':theme.accentInk||readableInk(theme.accent),soft:theme.soft,line:theme.outline};
     Object.entries(colors).forEach(([key,val])=>document.documentElement.style.setProperty('--'+key,val));
@@ -93,7 +148,7 @@
     review();
     applyTheme();
     document.getElementById('dateBadge').textContent=new Date().toLocaleDateString(undefined,{month:'short',day:'numeric'});
-    document.querySelectorAll('.bottom-nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===(view.page==='category'||view.page==='art'?'home':view.page)));
+    document.querySelectorAll('.bottom-nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===(view.page==='category'?'home':view.page==='art'?'gallery':view.page)));
     if(view.page==='category')renderCategory();
     else if(view.page==='tasks')renderTasks();
     else if(view.page==='gallery')renderGallery();
@@ -140,11 +195,12 @@
       <div class="row" style="margin:12px 0 19px">${button('○ Today’s habits','show-today','',view.all?'button small':'button small soft')}${button('☰ View all habits','show-all','',view.all?'button small soft':'button small')}</div>
       <div class="panel"><div class="topline"><strong>${view.all?'Full habit tracker':'Today’s unfinished habits'}</strong><span class="muted small-text">Week starts with today ↓</span></div>
       ${!visible.length?`<div class="empty" style="margin-top:14px"><span class="illustration">${view.all?'✎':'✿'}</span>${view.all?'No habits in this category yet.':'You’re all caught up for today!'}<br><span class="small-text">${view.all?'Add a habit to begin.':'Switch to View all habits to see upcoming or finished habits.'}</span></div>`:`
-      <div class="tracker-scroller" style="margin-top:15px"><table class="tracker"><thead><tr><th>Day</th>${visible.map(h=>`<th><span class="grid-head-name">${esc(h.name)}</span><span class="grid-head-progress">${h.status==='active'?'Day '+(h.progress+1)+' / '+h.goalDays:h.progress+' / '+h.goalDays}</span></th>`).join('')}</tr></thead>
+      <div class="tracker-scroller" style="margin-top:15px"><table class="tracker"><thead><tr><th>Day</th>${visible.map(h=>`<th scope="col" title="${esc(h.name)}"><span class="grid-head-name">${esc(h.name)}</span><span class="grid-head-progress">${h.status==='active'?'Day '+(h.progress+1)+' / '+h.goalDays:h.progress+' / '+h.goalDays}</span></th>`).join('')}</tr></thead>
       <tbody>${weekDays.map((day,i)=>`<tr class="${i===0?'today-row':''}"><td>${i===0?'● ':''}${esc(C.weekday(day))}<div class="muted" style="font-size:10px">${day.slice(5)}</div></td>${visible.map(h=>{
         if(h.status!=='active')return '<td><span class="grid-dash">—</span></td>';
         if(!C.dayScheduled(h,day))return '<td><span class="grid-dash">—</span></td>';
         if(h.completedDates.includes(day))return '<td><span class="grid-circle complete" aria-label="Completed">✓</span></td>';
+        if((h.skippedDates||[]).includes(day))return '<td><span class="grid-circle complete" aria-label="Skipped">↷</span></td>';
         if(i!==0)return '<td><span class="grid-circle" aria-label="Upcoming habit">·</span></td>';
         return `<td><button type="button" class="grid-circle due" data-action="habit-done" data-id="${esc(h.id)}" aria-label="Complete ${esc(h.name)} today">○</button></td>`;
       }).join('')}</tr>`).join('')}</tbody></table></div>
@@ -163,7 +219,9 @@
         <div class="detail">${h.weekdays.length===7?'Every day':h.weekdays.map(d=>esc(d)).join(' · ')||'No weekdays set'}</div>
       </div>
       <div class="mini-actions">
-        ${button('▦ Art','art-open',`data-id="${esc(h.id)}" data-type="habit"`,'button small soft')}
+        ${button('▦ Art','art-open',`data-id="${esc(linkedPicture(h)?.id||h.id)}" data-type="${linkedPicture(h)?'shared':'habit'}"`,'button small soft')}
+        ${due(h)&&h.allowSkip?button('↷ Skip today','habit-skip',`data-id="${esc(h.id)}"`,'button small'):''}
+        ${(h.skippedDates||[]).includes(today())?button('Undo skip','habit-undo-skip',`data-id="${esc(h.id)}"`,'button small'):''}
         ${button('Edit','habit-edit',`data-id="${esc(h.id)}"`,'button small')}
         ${h.status==='ready'?button('Finish / repeat','round-finish',`data-id="${esc(h.id)}"`,'button small primary'):''}
       </div>
@@ -183,37 +241,45 @@
       </section>`).join(''):'<div class="empty"><span class="illustration">☑</span>No task sheets yet.<br>Create a sheet for chores, projects, or anything else.</div>'}`;
   }
   function renderGallery(){
-    const ongoing=state.habits.filter(h=>h.status!=='ended');
-    screen.innerHTML=`<div class="eyebrow">YOUR VISUAL PROGRESS</div><h1 class="heading">Pixel gallery</h1><p class="lede">One tiny square for every successful habit day. Finished rounds stay in your collection.</p>
+    const ongoing=state.habits.filter(h=>h.status!=='ended' && !linkedPicture(h));
+    const shared=state.sharedPictures.filter(p=>memberHabits(p).length>=2);
+    screen.innerHTML=`<div class="eyebrow">YOUR VISUAL PROGRESS</div><h1 class="heading">Pixel gallery</h1>
+      <p class="lede">Every successful habit completion reveals one pixel. A picture can belong to one habit, or several together.</p>
+      <div class="row" style="margin-bottom:20px">${button('+ Create shared picture','picture-new','','button primary')}</div><p class="hint">To upload your own photo: tap any growing picture below → <strong>Upload my own image</strong> → select a JPG or PNG. For a shared image, first create a shared picture.</p>
       <h2 class="section-title">Growing right now</h2>
-      <div class="gallery-grid">${ongoing.map(h=>galleryCard(h,'habit')).join('')||'<div class="empty">Your habits will create art here.</div>'}</div>
+      <div class="gallery-grid">${ongoing.map(h=>galleryCard(h,'habit')).join('')}${shared.map(p=>galleryCard(sharedDisplay(p),'shared')).join('')||'<div class="empty">Your habits will create art here.</div>'}</div>
       <h2 class="section-title">Completed pieces ✦</h2>
-      <div class="gallery-grid">${state.gallery.map(g=>galleryCard(g,'gallery')).join('')||'<div class="empty">Complete a whole habit round to save its finished pixel art here!</div>'}</div>`;
+      <div class="gallery-grid">${state.gallery.map(g=>galleryCard(g,'gallery')).join('')||'<div class="empty">Complete a habit round or shared picture to save finished pixel art here!</div>'}</div>`;
   }
   function galleryCard(x,type){
     const goal=x.goalDays;
     const current=type==='gallery'?goal:x.progress;
+    const associated=type==='shared'?`<span class="muted small-text">${memberHabits(x).map(h=>esc(h.name)).join(' + ')}</span>`:'';
     return `<button class="gallery-card" data-action="art-open" data-id="${esc(x.id)}" data-type="${type}" type="button" style="color:var(--text);cursor:pointer">
       <canvas class="pixel-canvas" data-pixel-id="${esc(x.id)}" data-pixel-type="${type}" aria-label="${esc(x.habitName||x.name)} pixel artwork, ${current} of ${goal} pixels revealed"></canvas>
-      <strong>${esc(x.habitName||x.name)}</strong><span class="muted small-text">${current}/${goal} squares revealed</span></button>`;
+      <strong>${esc(x.habitName||x.name)}</strong>${associated}<span class="muted small-text">${current}/${goal} squares revealed</span></button>`;
   }
   function renderArtwork(){
-    const x=view.artType==='gallery'?state.gallery.find(g=>g.id===view.artId):habitOf(view.artId);
-    if(!x){navigate('gallery');return;}
-    const done=view.artType==='gallery'?x.goalDays:x.progress;
+    const isGallery=view.artType==='gallery',isShared=view.artType==='shared';
+    const real=isGallery?state.gallery.find(g=>g.id===view.artId):isShared?sharedOf(view.artId):habitOf(view.artId);
+    if(!real){navigate('gallery');return;}
+    const x=isShared?sharedDisplay(real):real;
+    const done=isGallery?x.goalDays:x.progress;
+    const associated=isShared?`<p class="muted small-text">Connected habits: ${memberHabits(real).map(h=>esc(h.name)).join(', ')}</p>`:'';
     screen.innerHTML=`${button('← Pixel gallery','gallery','','back')}
       <div class="eyebrow">ONE SQUARE AT A TIME</div><h1 class="heading">${esc(x.name||x.habitName)}</h1>
-      <p class="lede">${done} of ${x.goalDays} pixels revealed. ${view.artType==='gallery'?'A completed achievement!':'Your picture reveals itself as you complete scheduled habit days.'}</p>
+      <p class="lede">${done} of ${x.goalDays} pixels revealed. ${isGallery?'A completed achievement!':isShared?'One pixel for every completed scheduled day across all linked habits.':'Your picture reveals itself as you complete scheduled habit days.'}</p>
+      ${associated}
       <div class="panel" style="text-align:center">
         <canvas class="pixel-canvas pixel-large" data-pixel-id="${esc(x.id)}" data-pixel-type="${view.artType}" role="img" aria-label="Pixel art: ${done} of ${x.goalDays} pixels revealed"></canvas>
         <div class="progress-track"><div style="width:${Math.min(100,done*100/x.goalDays)}%"></div></div>
         <div class="row between" style="margin-top:15px"><span class="muted small-text">${Math.round(done*100/x.goalDays)}% uncovered</span><span class="pill">${esc(patternNames[x.pattern]||'Custom picture')}</span></div>
       </div>
-      ${view.artType==='habit'?`<div class="panel" style="margin-top:18px"><h2 style="margin:0 0 7px">Choose your pixel picture</h2><p class="muted small-text">Changing artwork doesn't change your habit progress.</p>
-        <div class="row" style="margin-top:12px">${button('Change pattern','art-pattern',`data-id="${esc(x.id)}"`,'button')}${button('Upload my own image','art-upload',`data-id="${esc(x.id)}"`,'button soft')}</div>
-        <input type="file" id="artPicture" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
-        <p class="muted small-text" style="margin:12px 0 0">Your picture is converted to exactly ${x.goalDays} colored squares and saved locally in this browser.</p></div>`:''}
-      <div class="hint" style="margin-top:18px">A missed day without a freeze clears the revealed squares, but keeps the picture design so you can try again.</div>`;
+      ${!isGallery && !real.archived?`<div class="panel" style="margin-top:18px"><h2 style="margin:0 0 7px">Choose your pixel picture</h2><p class="muted small-text">Changing artwork doesn't change your habit progress.</p>
+        <div class="row" style="margin-top:12px">${button('Change pattern',isShared?'picture-pattern':'art-pattern',`data-id="${esc(x.id)}"`,'button')}${button('Upload my own image','art-upload',`data-id="${esc(x.id)}"`,'button soft')}${isShared?button('Edit linked habits','picture-edit',`data-id="${esc(x.id)}"`,'button'):''}</div>
+        <p class="muted small-text" style="margin:12px 0 0">To upload: tap <strong>Upload my own image</strong>, choose a JPG or PNG, then wait for the confirmation. Every completed day reveals one colored square. Everything stays on this device.</p>
+        ${x.pixelColors?.length===x.goalDays?`<div class="image-upload-confirm">✓ Your custom picture is saved on this device.</div><p class="small-text muted" style="margin:9px 0">Picture preview (the finished image, before all squares are revealed):</p><canvas class="pixel-canvas pixel-preview" data-pixel-id="${esc(x.id)}" data-pixel-type="${view.artType}" data-preview="true" role="img" aria-label="Preview of selected pixel picture"></canvas>`:''}</div>`:''}
+      <div class="hint" style="margin-top:18px">${isShared?'If a linked habit resets, the pixels earned by that habit in its current round disappear. Other habits keep their pixels.':'A missed day without a freeze clears the revealed squares, but keeps the picture design so you can try again.'}</div>`;
   }
   function renderSettings(){
     const pinterest=C.THEMES.filter(t=>t.group==='pinterest');
@@ -234,7 +300,7 @@
     screen.innerHTML=`<div class="eyebrow">MAKE IT YOURS</div><h1 class="heading">Settings</h1>
       <p class="lede">Choose a theme anytime. Your habits, task sheets, and progress will stay the same.</p>
       <h2 class="section-title">Your Pinterest palettes · ${pinterest.length} themes</h2>
-      <p class="muted small-text">Each theme uses colors from just one of your photos. The swatches preserve the original palette; some lighter or darker variations keep text readable.</p>
+      <p class="muted small-text">For every Pinterest palette, the darkest color becomes the background and the lightest becomes the text and main buttons. The theme never borrows a color from another photo.</p>
       <div class="theme-grid">${pinterest.map(card).join('')}</div>
       <h2 class="section-title">Original themes</h2><div class="theme-grid">${starters.map(card).join('')}</div>
       <h2 class="section-title">Customize your own</h2>
@@ -255,9 +321,9 @@
   }
   function drawCanvases(){
     document.querySelectorAll('canvas[data-pixel-id]').forEach(canvas=>{
-      const x=canvas.dataset.pixelType==='gallery'?state.gallery.find(g=>g.id===canvas.dataset.pixelId):habitOf(canvas.dataset.pixelId);
+      const x=canvas.dataset.pixelType==='gallery'?state.gallery.find(g=>g.id===canvas.dataset.pixelId):canvas.dataset.pixelType==='shared'?sharedDisplay(sharedOf(canvas.dataset.pixelId)):habitOf(canvas.dataset.pixelId);
       if(!x)return;
-      drawPixels(canvas,x,canvas.dataset.pixelType==='gallery'?x.goalDays:x.progress);
+      drawPixels(canvas,x,canvas.dataset.preview==='true'?x.goalDays:canvas.dataset.pixelType==='gallery'?x.goalDays:x.progress);
     });
   }
   function patternColor(pattern,x,y){
@@ -348,6 +414,7 @@
       ${h?.progress?'<div class="muted small-text">A started habit keeps its original start date to protect its history.</div>':''}
       <label class="form-label">Days this habit is scheduled</label>
       <div class="weekdays">${['S','M','T','W','T','F','S'].map((short,i)=>`<label><input type="checkbox" name="weekdays" value="${C.DAYS[i]}" ${week.includes(C.DAYS[i])?'checked':''}><span>${short}</span></label>`).join('')}</div>
+      <label class="skip-choice"><input type="checkbox" name="allowSkip" value="yes" ${h?.allowSkip?'checked':''}><span><strong>Allow "Skip today" on this habit</strong><small>Optional days off without spending a freeze, changing your day number, or revealing a pixel. Other habits keep their normal rules.</small></span></label>
       <label class="form-label" for="habitPattern">Pixel image</label><select id="habitPattern" name="pattern">${Object.entries(patternNames).map(([id,label])=>`<option value="${id}" ${id===(h?.pattern||'flower')?'selected':''}>${label}</option>`).join('')}</select>
       <p class="muted small-text">You can also upload your own picture from the Pixel Gallery later. Exactly one square will reveal for each successful day.</p>
       <div class="form-foot">${h?button('Delete habit','habit-delete',`data-id="${esc(h.id)}"`,'button danger'):''}<button type="button" class="button" data-action="dialog-close">Cancel</button><button class="button primary" type="submit">Save habit</button></div>
@@ -361,6 +428,26 @@
     openDialog(`<button type="button" class="dialog-close" data-action="dialog-close">×</button><h2>Choose pixel artwork</h2>
       <p class="muted small-text">Choose a picture for ${esc(h.name)}. Your revealed squares will stay revealed.</p>
       <form data-form="pattern" data-id="${esc(h.id)}"><label class="form-label" for="patternChoice">Pattern</label><select id="patternChoice" name="pattern">${Object.entries(patternNames).map(([id,label])=>`<option value="${id}" ${h.pattern===id?'selected':''}>${label}</option>`).join('')}</select><div class="form-foot"><button class="button primary" type="submit">Use this artwork</button></div></form>`);
+  }
+  function sharedDialog(pic=null){
+    const chosen=new Set(pic?.habitIds||[]);
+    const choices=state.habits.filter(h=>h.status!=='ended'||chosen.has(h.id));
+    openDialog(`<button class="dialog-close" type="button" data-action="dialog-close">×</button>
+      <h2>${pic?'Edit shared picture':'Create a shared picture'}</h2>
+      <p class="muted small-text">Choose two or more habits. Each completion reveals one square on this SAME picture. Habits keep their separate schedules, goals and streaks.</p>
+      <form data-form="shared-picture" data-id="${esc(pic?.id||'')}">
+      <label class="form-label">Picture name</label><input name="name" type="text" maxlength="80" placeholder="e.g. Blooming Garden" value="${esc(pic?.name||'')}" required>
+      <label class="form-label">Connected habits</label>
+      <div class="linked-habit-options">${choices.map(h=>`<label class="linked-option"><input type="checkbox" name="habitIds" value="${esc(h.id)}" ${chosen.has(h.id)?'checked':''}><span>${esc(h.name)} <small>(${h.progress}/${h.goalDays})${h.sharedPictureId&&h.sharedPictureId!==pic?.id?' · will move from another picture':''}</small></span></label>`).join('')||'<p>Create some habits first, then connect them here.</p>'}</div>
+      <p class="muted small-text">The picture has one pixel per total goal day across its connected habits. Existing completions will appear as revealed pixels.</p>
+      <label class="form-label">Pixel design</label><select name="pattern">${Object.entries(patternNames).map(([id,label])=>`<option value="${id}" ${id===(pic?.pattern||'flower')?'selected':''}>${label}</option>`).join('')}</select>
+      <div class="form-foot">${pic?button('Delete shared picture','picture-delete',`data-id="${esc(pic.id)}"`,'button danger'):''}<button type="button" data-action="dialog-close" class="button">Cancel</button><button type="submit" class="button primary">Save picture</button></div>
+      </form>`);
+  }
+  function sharedPatternDialog(pic){
+    if(!pic)return;
+    openDialog(`<button type="button" class="dialog-close" data-action="dialog-close">×</button><h2>Choose pixel artwork</h2>
+      <form data-form="shared-pattern" data-id="${esc(pic.id)}"><label class="form-label">Pattern</label><select name="pattern">${Object.entries(patternNames).map(([id,label])=>`<option value="${id}" ${id===pic.pattern?'selected':''}>${label}</option>`).join('')}</select><div class="form-foot"><button class="button primary" type="submit">Use this artwork</button></div></form>`);
   }
   function roundDialog(h){
     openDialog(`<button class="dialog-close" type="button" data-action="dialog-close">×</button><div class="eyebrow">YOU DID IT ✦</div><h2>${esc(h.name)} complete!</h2>
@@ -386,28 +473,53 @@
         const h=habitOf(id);
         if(!h)return;
         if(confirm(`Delete “${h.name}” and its progress? Download a backup first if you might want it later.`)){
-          state.habits=state.habits.filter(x=>x.id!==id);save();closeDialog();render();toast('Habit deleted.');
+          state.habits=state.habits.filter(x=>x.id!==id);tidySharedPictures();save();closeDialog();render();toast('Habit deleted.');
         }
         break;
       }
       case 'habit-done':{
         const h=habitOf(id);if(!h)return;
         const result=C.complete(h,today());if(!result.ok){toast('This habit is not due today.');return;}
+        const shared=linkedPicture(h);
+        const sharedComplete=archiveSharedIfFinished(shared);
         save();render();
+        if(sharedComplete)toast('Your shared pixel picture is complete and saved! ✦');
         if(result.finished)roundDialog(h);
         else toast('One more square revealed! ✦');
         break;
+      }
+      case 'habit-skip':{
+        const h=habitOf(id);if(!h||!C.skip(h,today())){toast('Skip is unavailable for this habit today.');return;}
+        save();render();toast('Skipped today. No freeze spent and no progress lost. ↷');break;
+      }
+      case 'habit-undo-skip':{
+        const h=habitOf(id);if(h&&C.undoSkip(h,today())){save();render();toast('Skip undone. You can still complete today.');}break;
       }
       case 'show-today':view.all=false;render();break;
       case 'show-all':view.all=true;render();break;
       case 'art-open':navigate('art',{artId:id,artType:el.dataset.type||'habit'});break;
       case 'art-pattern':patternDialog(habitOf(id));break;
-      case 'art-upload':document.getElementById('artPicture')?.click();break;
+      case 'picture-new':sharedDialog();break;
+      case 'picture-edit':sharedDialog(sharedOf(id));break;
+      case 'picture-pattern':sharedPatternDialog(sharedOf(id));break;
+      case 'picture-delete':{
+        const p=sharedOf(id);if(!p)return;
+        if(confirm(`Delete “${p.name}”? Its linked habits will return to their individual pictures; their progress stays saved.`)){
+          p.habitIds.forEach(hid=>{const h=habitOf(hid);if(h)h.sharedPictureId=null;});
+          state.sharedPictures=state.sharedPictures.filter(x=>x.id!==id);save();closeDialog();navigate('gallery');
+        }break;
+      }
+      case 'art-upload':{picturePickerPending={artId:view.artId,artType:view.artType};const input=document.getElementById('artPicture');input.dataset.artId=view.artId;input.dataset.artType=view.artType;input.value='';input.click();break;}
       case 'round-finish':roundDialog(habitOf(id));break;
       case 'round-end':case 'round-repeat':{
         const h=habitOf(id);if(!h)return;
-        if(C.endRound(h,today(),state.gallery,action==='round-repeat')){
-          save();closeDialog();render();toast(action==='round-repeat'?'New round starts tomorrow!':'Achievement saved to your gallery!');
+        const shared=linkedPicture(h);
+        const pictureGoal=h.goalDays;
+        // A completed habit keeps its full contribution in the shared artwork
+        // when the habit begins a new round. This doesn't change its streak.
+        if(C.endRound(h,today(),shared?[]:state.gallery,action==='round-repeat')){
+          if(shared){shared.credited=shared.credited||{};shared.credited[h.id]=pictureGoal;archiveSharedIfFinished(shared);}
+          save();closeDialog();render();toast(action==='round-repeat'?'New round starts tomorrow!':'Achievement saved!');
         }
         break;
       }
@@ -476,6 +588,7 @@
       const num=Number(formData.get('goalDays'));
       const h=habitOf(form.dataset.id);
       const categoryId=String(formData.get('categoryId'));
+      const allowSkip=formData.has('allowSkip');
       const startDate=h?.progress?h.startDate:String(formData.get('startDate'));
       const pattern=String(formData.get('pattern')||'flower');
       if(!name||!days.length||!categoryOf(categoryId)||!Number.isSafeInteger(num)||num<1||num>10000||!C.goodDate(startDate)){
@@ -485,13 +598,40 @@
       if(h){
         if(h.goalDays!==num)h.pixelColors=null; // Different pixel counts need a new image conversion.
         if(h.startDate!==startDate){h.startDate=startDate;h.roundStart=startDate;h.lastReviewed=C.addDays(startDate,-1);}
-        h.name=name;h.goalDays=num;h.weekdays=days;h.categoryId=categoryId;
+        h.name=name;h.goalDays=num;h.weekdays=days;h.categoryId=categoryId;h.allowSkip=allowSkip;
         if(h.progress>=num)h.status='ready';
         else if(h.status==='ready')h.status='active';
         if(h.pattern!==pattern)h.pixelColors=null;
         h.pattern=pattern;
-      } else state.habits.push(C.makeHabit({name,categoryId,goalDays:num,weekdays:days,startDate,pattern}));
+      } else {const newHabit=C.makeHabit({name,categoryId,goalDays:num,weekdays:days,startDate,pattern});newHabit.allowSkip=allowSkip;state.habits.push(newHabit);}
       save();closeDialog();render();toast('Habit saved!');
+    } else if(f==='shared-picture'){
+      const name=String(formData.get('name')||'').trim();
+      const ids=[...new Set(formData.getAll('habitIds').map(String))];
+      const selected=ids.map(habitOf);
+      if(!name || ids.length<2 || selected.some(h=>!h||(h.status==='ended'&&h.sharedPictureId!==form.dataset.id))){
+        toast('Give your picture a name and select at least 2 active habits.');return;
+      }
+      let pic=sharedOf(form.dataset.id);
+      const oldGoals=pic?sharedStats(pic).goalDays:0;
+      if(pic?.archived && (ids.length!==pic.habitIds.length || ids.some(id=>!pic.habitIds.includes(id)))){
+        toast('This shared picture is already complete. Create a new picture to change the linked habits.');return;
+      }
+      if(!pic){pic={id:C.makeId(),name,pattern:'flower',pixelColors:null,habitIds:[],credited:{},archived:false};state.sharedPictures.push(pic);}
+      pic.name=name;pic.pattern=String(formData.get('pattern')||'flower');
+      const previous=pic.habitIds||[];
+      previous.filter(id=>!ids.includes(id)).forEach(id=>{const h=habitOf(id);if(h)h.sharedPictureId=null;});
+      ids.forEach(id=>{const h=habitOf(id);h.sharedPictureId=pic.id;});
+      pic.habitIds=ids;
+      const newGoal=sharedStats(pic).goalDays;
+      if(newGoal!==oldGoals && pic.pixelColors)pic.pixelColors=null;
+      pic.credited=Object.fromEntries(Object.entries(pic.credited||{}).filter(([id])=>ids.includes(id)));
+      tidySharedPictures();
+      archiveSharedIfFinished(pic);
+      save();closeDialog();navigate('gallery');toast('Your shared picture is ready!');
+    } else if(f==='shared-pattern'){
+      const pic=sharedOf(form.dataset.id);
+      if(pic){pic.pattern=String(formData.get('pattern')||'flower');pic.pixelColors=null;save();closeDialog();render();}
     } else if(f==='sheet'){
       const name=String(formData.get('name')||'').trim();if(!name)return;
       const s=state.tasks.find(t=>t.id===form.dataset.id);
@@ -516,7 +656,7 @@
       const file=event.target.files?.[0];event.target.value='';if(file)await restoreFile(file);
     }
     if(event.target.id==='artPicture'){
-      const file=event.target.files?.[0];event.target.value='';if(file)await usePicture(file);
+      const input=event.target;const file=input.files?.[0];const target=input.dataset.artId?{artId:input.dataset.artId,artType:input.dataset.artType||'habit'}:picturePickerPending;input.value='';picturePickerPending=null;delete input.dataset.artId;delete input.dataset.artType;if(file&&target)await usePicture(file,target);
     }
   });
   function downloadBackup(){
@@ -540,16 +680,18 @@
     if(!restored){toast('The backup format was not recognized. Nothing was changed.');return;}
     if(!confirm(`Restore a backup with ${restored.habits.length} habits? This REPLACES all currently saved habits, task lists, and gallery items. Download a fresh backup first if needed.`))return;
     try{localStorage.setItem(KEY,JSON.stringify(restored));}catch(e){toast('Could not save this backup. Nothing was changed.');return;}
-    state=restored;closeDialog();navigate('home');toast('Your backup was restored successfully!');
+    state=ensureState(restored);closeDialog();navigate('home');toast('Your backup was restored successfully!');
   }
-  async function usePicture(file){
-    const h=habitOf(view.artId);
-    if(!h || !file.type.startsWith('image/')){toast('Please choose a picture file.');return;}
+  async function usePicture(file,target){
+    const h=target.artType==='shared'?sharedOf(target.artId):habitOf(target.artId);
+    if(h?.archived){toast('That shared picture is already finished. Create a new picture for your next artwork.');return;}
+    const numberOfPixels=target.artType==='shared'&&h?sharedStats(h).goalDays:h?.goalDays;
+    if(!h || !numberOfPixels || !(file.type.startsWith('image/')||/\.(png|jpe?g|webp|gif)$/i.test(file.name))){toast('Please choose a JPG or PNG picture.');return;}
     if(file.size>15*1024*1024){toast('Choose an image smaller than 15 MB.');return;}
     const blobUrl=URL.createObjectURL(file);
     try{
-      const image=new Image();image.src=blobUrl;await image.decode();
-      const cols=Math.ceil(Math.sqrt(h.goalDays)), rows=Math.ceil(h.goalDays/cols);
+      const image=new Image();image.src=blobUrl;await new Promise((resolve,reject)=>{if(image.complete&&image.naturalWidth)return resolve();image.onload=()=>resolve();image.onerror=()=>reject(Error('Image could not be decoded'));});
+      const cols=Math.ceil(Math.sqrt(numberOfPixels)), rows=Math.ceil(numberOfPixels/cols);
       const canvas=document.createElement('canvas');canvas.width=cols;canvas.height=rows;
       const ctx=canvas.getContext('2d',{willReadFrequently:true});
       if(!ctx)throw Error('Canvas unavailable');
@@ -557,16 +699,17 @@
       const w=image.width*ratio,he=image.height*ratio;
       ctx.drawImage(image,(cols-w)/2,(rows-he)/2,w,he);
       const rgba=ctx.getImageData(0,0,cols,rows).data;
-      h.pixelColors=Array.from({length:h.goalDays},(_,i)=>{
+      h.pixelColors=Array.from({length:numberOfPixels},(_,i)=>{
         const off=i*4;
         return '#'+[rgba[off],rgba[off+1],rgba[off+2]].map(v=>v.toString(16).padStart(2,'0')).join('');
       });
-      if(save()){render();toast('Your custom pixel picture was saved!');}
+      if(save()){view={...view,page:'art',artId:target.artId,artType:target.artType};render();toast('Picture uploaded! Check the full-color preview below your growing artwork.');}
     }catch(err){console.error(err);toast('Unable to open that picture. Please try a JPG or PNG.');}
     finally{URL.revokeObjectURL(blobUrl);}
   }
-  window.addEventListener('focus',()=>{render();});
-  document.addEventListener('visibilitychange',()=>{if(!document.hidden)render();});
+  document.getElementById('artPicture').addEventListener('cancel',()=>{picturePickerPending=null;});
+  window.addEventListener('focus',()=>{if(!picturePickerPending)render();});
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden && !picturePickerPending)render();});
   if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
   render();
 })();

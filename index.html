@@ -28,6 +28,8 @@
   </div>
   <dialog id="editor" aria-label="Editor"><div id="dialogContent"></div></dialog>
   <input type="file" id="restoreFile" accept=".json,application/json" hidden>
+  <!-- Global file input stays mounted while Android photo picker is open. -->
+  <input type="file" id="artPicture" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script src="./core.js"></script>
   <script src="./app.js"></script>

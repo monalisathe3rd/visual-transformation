@@ -34,3 +34,21 @@ Once all app files are on your GitHub Pages website, open the site on your phone
 ## Color themes
 
 The Settings page includes the original five starter themes plus 15 Pinterest-based color palettes submitted by the user, each as its own independent theme. All original colors are represented in each theme’s preview swatches; legible foreground and background tints may be derived from that same palette. Choose any preset to apply it immediately without altering habit progress. You can also change individual background, text, card, button, highlight, and border colors and save a separate personal theme; it remains available when switching back to presets. No Pinterest images are uploaded or embedded in the app; these are color-only presets.
+
+
+## Update: Dark Pinterest palettes and shared artwork
+
+- All 15 Pinterest presets now place the darkest swatch on the page background and the lightest swatch on text/main buttons. Original non-Pinterest presets are unchanged.
+- In the Pixel Gallery choose **Create shared picture** and select at least two habits. Each successful completion fills one pixel. Habits keep their independent streaks, schedules and resets.
+- If a linked habit resets, its unfinished current-round contribution disappears, while the other habits' pixels remain. Completed rounds remain credited to the shared picture.
+- Individual habit artwork is still the default. Deleting a shared picture returns its habits to their original individual images without erasing habit progress.
+- Open Gallery → tap a picture → **Upload my own image** to select a JPG or PNG from your device. Pictures are reduced to pixel colors and stored locally; back up regularly.
+- This update continues using the existing `vtStateV2` browser storage, adding `sharedPictures` only when needed.
+
+## Update: Compact vertical weekday grid, optional Skip, and photo upload
+
+- **Habit names now run vertically** above the weekday grid. Habit columns are narrower (51px on smaller phone screens) to fit more habits without scrolling. Day names and current habit day numbers remain readable. Swipe the grid sideways if a category has many habits.
+- **No diary section.** The app continues to have Home, Tasks, Gallery and Settings. If an experimental diary version ever stored an entry, this update does not purposely delete your existing saved data, but it does not display a diary.
+- **Optional Skip:** When creating or editing an individual habit, enable **Allow "Skip today"**. On a scheduled day, Skip exempts that day from missed-day penalties without adding progress or pixels or spending a freeze. The habit resumes on the next scheduled day. Skip is OFF for other habits unless you enable it. You can Undo a same-day skip in **View all habits**.
+- **Phone photo uploads:** The file selector stays mounted while the Android photo picker is open. After selecting a JPG or PNG, the app shows a confirmation and a full-color preview of the selected image. Your growing pixel art still reveals one pixel per completed day.
+- Existing habit records are read from your device's saved storage, not from files in GitHub. Do a JSON backup before uploading the new version, and keep backups private.

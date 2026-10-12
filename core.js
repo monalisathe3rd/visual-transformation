@@ -44,7 +44,7 @@
   function clamp(n,min,max) { return Math.max(min,Math.min(max,n)); }
   function makeId() { return typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'vt-'+Date.now()+'-'+Math.random().toString(36).slice(2); }
   function makeHabit({name,categoryId,goalDays,weekdays,startDate,pattern='flower'}) {
-    return {id:makeId(),name:String(name).trim(),categoryId,goalDays:Number(goalDays),weekdays:[...weekdays],startDate,roundStart:startDate,lastReviewed:addDays(startDate,-1),completedDates:[],progress:0,streak:0,freezes:0,usedFreezes:0,resets:0,status:'active',round:1,pattern,pixelColors:null};
+    return {id:makeId(),name:String(name).trim(),categoryId,goalDays:Number(goalDays),weekdays:[...weekdays],startDate,roundStart:startDate,lastReviewed:addDays(startDate,-1),completedDates:[],skippedDates:[],allowSkip:false,progress:0,streak:0,freezes:0,usedFreezes:0,resets:0,status:'active',round:1,pattern,pixelColors:null};
   }
   function earned(h) {
     if (h.streak>0 && h.streak%14===0) h.freezes=Math.min(2,h.freezes+1);
@@ -59,7 +59,7 @@
     let cursor=addDays(baseline,1);
     // Bound catch-up work; new habits can't generate millions of iterations.
     for (let count=0; cursor<=until && count<36525; count++,cursor=addDays(cursor,1)) {
-      if (dayScheduled(h,cursor) && !h.completedDates.includes(cursor)) {
+      if (dayScheduled(h,cursor) && !h.completedDates.includes(cursor) && !(h.skippedDates||[]).includes(cursor)) {
         if (h.freezes>0) { h.freezes--;h.usedFreezes++; }
         else if (h.progress>0 || h.streak>0 || h.completedDates.length>0) {h.progress=0;h.streak=0;h.freezes=0;h.completedDates=[];h.pixelResetDate=cursor;h.resets++;}
         changed=true;
@@ -81,6 +81,23 @@
     if (h.progress>=h.goalDays) {h.progress=h.goalDays;h.status='ready';return {ok:true,finished:true};}
     return {ok:true,finished:false};
   }
+  // Skips are opt-in per habit and exempt that scheduled day from penalties.
+  // They earn no pixel, do not increase the completion streak, and cost no freeze.
+  function skip(h,today) {
+    if (!h.allowSkip || h.status!=='active' || !dayScheduled(h,today) ||
+        h.completedDates.includes(today) || (h.skippedDates||[]).includes(today)) return false;
+    reviewUntil(h,today);
+    h.skippedDates=h.skippedDates||[];
+    h.skippedDates.push(today);
+    // Do not advance lastReviewed here: a same-day Undo must restore normal
+    // missed-day detection if the user then leaves the day incomplete.
+    return true;
+  }
+  function undoSkip(h,today) {
+    if (!h.allowSkip || !(h.skippedDates||[]).includes(today)) return false;
+    h.skippedDates=h.skippedDates.filter(s=>s!==today);
+    return true;
+  }
   function nextDayNumber(h,day) {
     let n=h.progress+1;
     if (n>h.goalDays) return null;
@@ -95,7 +112,7 @@
       h.round++;
       h.roundStart=addDays(today,1); // Can't complete two rounds on one calendar day.
       h.lastReviewed=today;
-      h.completedDates=[];h.progress=0;h.streak=0;h.freezes=0;h.usedFreezes=0;h.resets=0;h.status='active';
+      h.completedDates=[];h.skippedDates=[];h.progress=0;h.streak=0;h.freezes=0;h.usedFreezes=0;h.resets=0;h.status='active';
     } else { h.status='ended'; }
     return true;
   }
@@ -129,18 +146,19 @@
         // Initialize from today rather than imposing resets based on days before the upgrade.
         lastReviewed:alreadyToday?today:addDays(today,-1),completedDates:completions,progress,
         streak:guessRecentStreak(completions,weeks,today),freezes:clamp(Number(old.streakFreezes)||0,0,2),usedFreezes:0,resets:0,
-        status:progress>=goal?'ready':'active',round:1,pattern:'flower',pixelColors:null,legacy:true});
+        status:progress>=goal?'ready':'active',round:1,pattern:'flower',pixelColors:null,legacy:true,allowSkip:false,skippedDates:[]});
     }
     return {version:2,categories:cats,habits,tasks:[],gallery:[],settings:{themeId:'sage',customTheme:null}};
   }
   function blankState(){return {version:2,categories:DEFAULT_CATEGORIES.map(c=>({...c})),habits:[],tasks:[],gallery:[],settings:{themeId:'sage',customTheme:null}};}
   function validState(s) {
     return s && s.version===2 && s.settings && typeof s.settings==='object' && Array.isArray(s.categories) && Array.isArray(s.habits) && Array.isArray(s.tasks) && Array.isArray(s.gallery)
+      && (s.diary===undefined || (Array.isArray(s.diary) && s.diary.every(e=>e && typeof e.id==='string' && goodDate(e.date) && typeof e.title==='string' && typeof e.text==='string')))
       && s.categories.every(c=>c && typeof c.id==='string' && typeof c.name==='string')
       && s.tasks.every(t=>t && typeof t.id==='string' && typeof t.name==='string' && Array.isArray(t.items) && t.items.every(i=>i && typeof i.id==='string' && typeof i.text==='string' && typeof i.done==='boolean'))
       && s.gallery.every(g=>g && typeof g.id==='string' && typeof g.habitName==='string' && Number.isInteger(g.goalDays) && g.goalDays>0)
       && s.habits.every(h=>h && typeof h.name==='string' && typeof h.categoryId==='string' && Number.isInteger(h.goalDays) && h.goalDays>=1 && h.goalDays<=10000
         && Array.isArray(h.weekdays) && Array.isArray(h.completedDates) && Number.isFinite(h.progress) && Number.isFinite(h.streak) && Number.isFinite(h.freezes));
   }
-  return {DAYS,DEFAULT_CATEGORIES,THEMES,goodDate,dateKey,dateFromKey,addDays,weekday,dayScheduled,makeId,makeHabit,reviewUntil,complete,nextDayNumber,endRound,migrateLegacy,blankState,validState,clamp};
+  return {DAYS,DEFAULT_CATEGORIES,THEMES,goodDate,dateKey,dateFromKey,addDays,weekday,dayScheduled,makeId,makeHabit,reviewUntil,complete,skip,undoSkip,nextDayNumber,endRound,migrateLegacy,blankState,validState,clamp};
 });

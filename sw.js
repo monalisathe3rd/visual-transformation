@@ -1,4 +1,4 @@
-const CACHE_NAME='visual-transformation-v2-themes';
+const CACHE_NAME='visual-transformation-v5-compact-no-diary';
 const ASSETS=['./','./index.html','./styles.css','./core.js','./app.js','./manifest.webmanifest','./icon-192.png','./icon-512.png','./icon.svg'];
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE_NAME).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting()));
